@@ -13,18 +13,13 @@
         android:theme="@style/Theme.Prueba"
         tools:targetApi="31">
         <activity
-            android:name=".PuntosActivity"
-            android:exported="false"
-            />
+            android:name=".activities.SignUpActivity"
+            android:exported="false" />
         <activity
-            android:name=".PerfilActivity"
-            android:exported="false"
-            />
+            android:name=".activities.LandingLoginActivity"
+            android:exported="false" />
         <activity
-            android:name=".NotificacionesActivity"
-            android:exported="false"/>
-        <activity
-            android:name=".HomeActivity"
+            android:name=".activities.LoginActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -32,6 +27,19 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".activities.PuntosActivity"
+            android:exported="false" />
+        <activity
+            android:name=".activities.PerfilActivity"
+            android:exported="false" />
+        <activity
+            android:name=".activities.NotificacionesActivity"
+            android:exported="false" />
+        <activity
+            android:name=".activities.HomeActivity"
+            android:exported="false" />
+
         <meta-data
             android:name="preloaded_fonts"
             android:resource="@array/preloaded_fonts" />

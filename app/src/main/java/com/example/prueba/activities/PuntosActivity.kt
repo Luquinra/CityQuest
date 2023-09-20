@@ -1,9 +1,8 @@
-package com.example.prueba
+package com.example.prueba.activities
 
 import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
-import com.example.prueba.databinding.ActivityNotificacionesBinding
 import com.example.prueba.databinding.ActivityPuntosBinding
 
 class PuntosActivity : AppCompatActivity() {

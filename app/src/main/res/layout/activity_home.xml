@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".HomeActivity">
+    tools:context=".activities.HomeActivity">
 
     <TextView
         android:id="@+id/saludo"
@@ -14,7 +14,7 @@
         android:layout_marginTop="64dp"
         android:layout_marginBottom="10dp"
         android:fontFamily="@font/poppins_semibold"
-        android:text="Hola"
+        android:text="Hola!"
         android:textSize="20sp"
         android:textStyle="bold"
         app:layout_constraintBottom_toTopOf="@+id/pregunta"
@@ -32,7 +32,7 @@
         android:fontFamily="@font/poppins"
         android:gravity="top"
         android:text="@string/a_d_nde_nos_dirigiremos_hoy"
-        android:textColor="#A9A9A9"
+        android:textColor="@color/grey"
         android:textSize="11sp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />

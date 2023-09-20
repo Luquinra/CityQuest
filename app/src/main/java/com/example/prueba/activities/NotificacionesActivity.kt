@@ -1,10 +1,13 @@
-package com.example.prueba
+package com.example.prueba.activities
 
 import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.prueba.adapters.NotificationAdapter
+import com.example.prueba.items.NotificationItem
+import com.example.prueba.R
 import com.example.prueba.databinding.ActivityNotificacionesBinding
 
 class NotificacionesActivity : AppCompatActivity() {

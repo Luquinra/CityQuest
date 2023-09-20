@@ -1,4 +1,4 @@
-package com.example.prueba
+package com.example.prueba.items
 
 data class NotificationItem(
     val title: String,

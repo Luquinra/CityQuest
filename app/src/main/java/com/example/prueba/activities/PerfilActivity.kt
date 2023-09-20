@@ -1,10 +1,14 @@
-package com.example.prueba
+package com.example.prueba.activities
 
 import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.prueba.adapters.PhotoAdapter
+import com.example.prueba.PhotoDecoracion
+import com.example.prueba.items.PhotoItem
+import com.example.prueba.R
 import com.example.prueba.databinding.ActivityPerfilBinding
 
 class PerfilActivity : AppCompatActivity() {

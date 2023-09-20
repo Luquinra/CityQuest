@@ -1,4 +1,9 @@
 <resources>
     <string name="app_name">prueba</string>
     <string name="a_d_nde_nos_dirigiremos_hoy">¿A dónde nos dirigiremos hoy?</string>
+    <string name="bienvenidaLogin">Bienvenido a CityQuest!</string>
+    <string name="developedBy">Desarrollado por Guayaba Cósmica</string>
+    <string name="welcomeBack">¡Bienvenido de vuelta!</string>
+    <string name="register">¡Registrate!</string>
+
 </resources>
