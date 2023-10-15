@@ -47,6 +47,7 @@ class HomeActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var linearAceleration: Sensor
     private lateinit var orientationSensor: Sensor
     private lateinit var locationManager: LocationManager
+    private var userLocationMarker: Marker? = null
     private val REQUEST_LOCATION_PERMISSION = 1
 
     private val geocoder: Geocoder by lazy {
@@ -129,7 +130,6 @@ class HomeActivity : AppCompatActivity(), SensorEventListener {
 
 
 
-            showUserLocation()
         }
         /*
         if (userGeoPoint == null) {
@@ -197,7 +197,7 @@ class HomeActivity : AppCompatActivity(), SensorEventListener {
         searchMarkers.forEach{map.overlays.remove(it)}
         searchMarkers.clear()
 
-        val marker = createMarker(p, snippet, R.drawable.arrowofuser,"Unknown")
+        val marker = createMarker(p, snippet, R.drawable.puntero2,"Unknown")
         searchMarkers.add(marker)
         map.overlays.add(marker)
 
@@ -251,7 +251,7 @@ class HomeActivity : AppCompatActivity(), SensorEventListener {
             }
 
         }
-        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+
         return marker
 
     }
@@ -336,6 +336,9 @@ class HomeActivity : AppCompatActivity(), SensorEventListener {
 
         if(event?.sensor?.type == Sensor.TYPE_ROTATION_VECTOR) {
 
+            userLocationMarker?.let {
+                map.overlays.remove(it)
+            }
             val rotationMatrix = FloatArray(9)
             val orientationValues = FloatArray(3)
 
@@ -371,9 +374,10 @@ class HomeActivity : AppCompatActivity(), SensorEventListener {
 
                 if (location != null) {
                     val userGeoPoint = GeoPoint(location.latitude, location.longitude)
-                    val userLocationMarker = createMarker(userGeoPoint,"user",R.drawable.arrowofuser,direction)
-                    userLocationMarkers.add(userLocationMarker)
+                    userLocationMarker = createMarker(userGeoPoint,"user",R.drawable.arrowofuser,direction)
+                    userLocationMarkers.add(userLocationMarker!!)
                     map.overlays.add(userLocationMarker)
+
                 } else {
 
                 }
