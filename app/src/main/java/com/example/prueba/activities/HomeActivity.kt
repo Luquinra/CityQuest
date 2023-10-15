@@ -17,6 +17,7 @@ import android.location.LocationManager
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
@@ -349,6 +350,10 @@ class HomeActivity : AppCompatActivity(), SensorEventListener {
 
             val direction = mapHeadingToDirection(adjustedAzimuth)
 
+            val direccionTextView = findViewById<TextView>(R.id.direccion)
+
+            direccionTextView.text = direction
+
             if (ContextCompat.checkSelfPermission(
                     this,
                     Manifest.permission.ACCESS_FINE_LOCATION
@@ -366,11 +371,15 @@ class HomeActivity : AppCompatActivity(), SensorEventListener {
 
                 if (location != null) {
                     val userGeoPoint = GeoPoint(location.latitude, location.longitude)
-                    createMarker(userGeoPoint,"user",R.drawable.arrowofuser,direction)
+                    val userLocationMarker = createMarker(userGeoPoint,"user",R.drawable.arrowofuser,direction)
+                    userLocationMarkers.add(userLocationMarker)
+                    map.overlays.add(userLocationMarker)
                 } else {
 
                 }
             }
+
+            R.id.direccion
         }
         if(event?.sensor?.type == Sensor.TYPE_LINEAR_ACCELERATION){
 
