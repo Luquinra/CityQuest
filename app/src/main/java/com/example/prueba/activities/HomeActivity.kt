@@ -16,16 +16,22 @@ import android.location.LocationListener
 import android.location.LocationManager
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.Handler
+import android.os.StrictMode
+import android.os.StrictMode.ThreadPolicy
 import android.util.Log
+import android.widget.Button
+import android.widget.EditText
+import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.prueba.R
 import com.example.prueba.databinding.ActivityHomeBinding
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.TileOverlay
+import org.json.JSONArray
+import org.json.JSONObject
 import org.osmdroid.bonuspack.routing.OSRMRoadManager
 import org.osmdroid.bonuspack.routing.RoadManager
 import org.osmdroid.config.Configuration
@@ -37,11 +43,19 @@ import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
 import org.osmdroid.views.overlay.TilesOverlay
+import java.io.File
+import java.io.FileReader
+import java.io.FileWriter
+import java.text.SimpleDateFormat
+import java.util.Date
 
 class HomeActivity : AppCompatActivity(), SensorEventListener {
-
+    private val MIN_DISTANCE_FOR_UPDATE = 15.0
+    private val earthRadius = 6371.0
+    private val JSON_FILE_NAME = "locations_records.json"
     private lateinit var binding: ActivityHomeBinding
     lateinit var map: MapView
+    private var currentMarker: Marker? = null
     private lateinit var sensorManager: SensorManager
     private lateinit var lightSensor: Sensor
     private lateinit var linearAceleration: Sensor
@@ -49,6 +63,13 @@ class HomeActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var locationManager: LocationManager
     private var userLocationMarker: Marker? = null
     private val REQUEST_LOCATION_PERMISSION = 1
+    private lateinit var addresEditText: EditText
+    private lateinit var searchButton: ImageButton
+    private lateinit var showRouteButton: Button
+    private lateinit var userGeoPoint: GeoPoint
+    private lateinit var direccion: String
+    private var lastLocation: Location? = null
+    private var jsonFile: File? = null
 
     private val geocoder: Geocoder by lazy {
         Geocoder(this)
@@ -60,22 +81,27 @@ class HomeActivity : AppCompatActivity(), SensorEventListener {
     private val searchMarkers = ArrayList<Marker>()
 
     private lateinit var roadManager: RoadManager
-    private var userGeoPoint: GeoPoint? = null
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityHomeBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
+        //Cargar la informacion del mapa
         Configuration.getInstance().load(this,
             androidx.preference.PreferenceManager.getDefaultSharedPreferences(this))
+        //Estableces tipo de fuente
         map = binding.osmMap
         map.setTileSource(
             TileSourceFactory.
             MAPNIK)
         map.setMultiTouchControls(true)
+
+        //AHabilitar Funcion multitouch
         map.overlays.add(createOverlayEvents())
 
+
+        //Listeners para cuando el usuario presione el boton
 
          binding.notificaciones.setOnClickListener{
             startActivity(Intent(baseContext, NotificacionesActivity::class.java))
@@ -89,12 +115,26 @@ class HomeActivity : AppCompatActivity(), SensorEventListener {
             startActivity(Intent(baseContext, PuntosActivity::class.java))
         }
 
+        //Inicializacion de los sensors (Luz, Rotacion y ...?
+
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
         linearAceleration = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
         orientationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
 
+        //Configuracion de carreteras
       roadManager = OSRMRoadManager(this,"ANDROID")
+      val policy = ThreadPolicy.Builder().permitAll().build()
+      StrictMode.setThreadPolicy(policy)
+        showRouteButton = findViewById(R.id.showRouteButton)
+
+        addresEditText = findViewById(R.id.addressEditText)
+        searchButton = findViewById(R.id.searchButton)
+        searchButton.setOnClickListener{
+
+            val address = addresEditText.text.toString()
+            searchLocation(address)
+        }
 
     }
 
@@ -104,43 +144,53 @@ class HomeActivity : AppCompatActivity(), SensorEventListener {
 
     override fun onResume() {
         super.onResume()
-        map.onResume()
-        map.
-        controller.setZoom(18.0)
-        map.
-        controller.animateTo(startPoint)
 
+        if(ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED){
+            locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            locationManager.requestLocationUpdates(
+                LocationManager.GPS_PROVIDER,
+                2000,
+                10.0f,
+                locationListener
+            )
+        }
+
+        map.onResume()
+        map.controller.setZoom(10.0)
+        val location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+
+        if(location != null){
+            val userGeoPoint = GeoPoint(location.latitude, location.longitude)
+            map.controller.animateTo(userGeoPoint)
+        }else{
+            //No se cargara el mapa
+        }
+
+        showUserLocation()
+
+        //Existe un destino en la barra de busqueda o se ha presionado en el mapa
+        if(searchMarkers.isNotEmpty()){
+            val destination = searchMarkers.firstOrNull()?.position
+            if(destination != null){
+                val userLocation = userLocationMarkers.firstOrNull()?.position
+                if(userLocation != null){
+                    drawRoute(userLocation, destination)
+                }
+
+            }
+        }else{
+
+            map.onResume()
+            map.controller.setZoom(10.0)
+            requestLocationPermission()
+        }
+
+        //Aqui se empiezan el listeners de los sensoneres
         sensorManager.registerListener(this, lightSensor, SensorManager.SENSOR_DELAY_NORMAL)
         sensorManager.registerListener(this, linearAceleration, SensorManager.SENSOR_DELAY_NORMAL)
         sensorManager.registerListener(this, orientationSensor, SensorManager.SENSOR_DELAY_NORMAL)
 
-        if(ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED){
 
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),REQUEST_LOCATION_PERMISSION)
-        }else{
-            locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-            val location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-
-            if(location != null){
-                val userGeoPoint = GeoPoint(location.latitude, location.longitude)
-                map.controller.animateTo(userGeoPoint)
-            }else{
-
-            }
-
-
-
-        }
-        /*
-        if (userGeoPoint == null) {
-            userGeoPoint = getUserLocation()
-        }
-
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQUEST_LOCATION_PERMISSION)
-        } else {
-            showUserLocation()
-        } */
 
     }
     override fun onPause() {
@@ -148,23 +198,25 @@ class HomeActivity : AppCompatActivity(), SensorEventListener {
         map.onPause()
     }
 
-    private fun getUserLocation(): GeoPoint? {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-            val location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+    //Comprueba si el usuario otorgo o denego el permiso de ubicacion y actua en consecuencia, cada vez que hay una respuesta a solicitud de permisos
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        when(requestCode){
 
-            if (location != null) {
-                val userGeoPoint = GeoPoint(location.latitude, location.longitude)
-                map.controller.animateTo(userGeoPoint)
-                return userGeoPoint
-            } else {
-                // Handle the case where location is not available
-                return null
+            REQUEST_LOCATION_PERMISSION->{
+
+                if(grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED){
+
+                    //El usuario acepto conceder el permiso y se ysa su ubicacion
+                }else{
+
+                    //El usuario denego el permiso
+                }
             }
-        } else {
-            // Request location permission if not granted
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQUEST_LOCATION_PERMISSION)
-            return null
         }
     }
 
@@ -191,19 +243,90 @@ class HomeActivity : AppCompatActivity(), SensorEventListener {
 
     private fun longPressOnMap(p: GeoPoint) {
 
-        val address = findAddress(LatLng(p.latitude, p.longitude))
-        val snippet: String = address ?: ""
+        currentMarker?.title = ""
+        val addressText = findAddress(p)
+        val titleText: String = addressText?:""
+       //Crear un marcador o actualizar el marcador existente
 
+        if(currentMarker == null){
+            currentMarker = createMarker(p, titleText, R.drawable.puntero2,"Unknown")
+            searchMarkers.add(currentMarker!!)
+            map.overlays.add(currentMarker)
+        }else{
+            currentMarker?.title = titleText
+            currentMarker?.position = p
+        }
+
+        val userLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+        if(userLocation != null){
+            val userGeoPoint = GeoPoint(userLocation.latitude, userLocation.longitude)
+            val distance = calculateDistance(userGeoPoint, p)
+            val distanceMessage = "Distancia total entre puntos: $distance km"
+            Toast.makeText(this, distanceMessage,Toast.LENGTH_SHORT).show()
+        }
+
+        val address = findAddress(p)
+        val snippet: String = address ?: ""
         searchMarkers.forEach{map.overlays.remove(it)}
         searchMarkers.clear()
-
-        val marker = createMarker(p, snippet, R.drawable.puntero2,"Unknown")
+        val marker = createMarker(p,snippet,R.drawable.puntero2,"Unknown")
         searchMarkers.add(marker)
         map.overlays.add(marker)
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            val location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+            if(location != null){
+                userGeoPoint = GeoPoint(location.latitude, location.longitude)
+                updateRoute(userGeoPoint,p)
+            }
+        }else{
+            requestLocationPermission()
+        }
 
     }
 
-    private fun findAddress(latLng: LatLng): String? {
+    private fun calculateDistance(start: GeoPoint, finish: GeoPoint): Double{
+        val dLat = Math.toRadians(finish.latitude - start.latitude)
+        val dLng = Math.toRadians(finish.longitude - start.longitude)
+        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(start.latitude)) * Math.cos(Math.toRadians(finish.latitude)) *
+                Math.sin(dLng / 2) * Math.sin(dLng / 2)
+        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        return earthRadius * c
+
+    }
+
+    //Actualiza la ruta en el mapa para dos puntos geograficos
+
+    private fun updateRoute(start: GeoPoint, finish: GeoPoint){
+
+        var routePoints = ArrayList<GeoPoint>()
+        routePoints.add(start)
+        routePoints.add(finish)
+        val road = roadManager.getRoad(routePoints)
+        Log.i("Maps app","Route_Lenght: " + road.mLength + "klm")
+        Log.i("Maps app","Duration: " + road.mDuration/60 + "min")
+
+        if(map != null ){
+            if(roadOverlay!=null){
+
+                map.overlays.remove(roadOverlay)
+            }
+        }
+        roadOverlay = RoadManager.buildRoadOverlay(road)
+        roadOverlay!!.outlinePaint.color = Color.CYAN
+        roadOverlay!!.outlinePaint.strokeWidth = 10f
+        map.overlays.add(roadOverlay)
+        map.invalidate()
+    }
+
+    private fun findAddress(latLng: GeoPoint): String? {
 
         val addresses:List<Address> = geocoder.getFromLocation(latLng.latitude, latLng.longitude, 1) ?: emptyList()
         if(addresses.isNotEmpty()){
@@ -220,7 +343,7 @@ class HomeActivity : AppCompatActivity(), SensorEventListener {
             val location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
             if(location != null){
 
-                val userGeoPoint = GeoPoint(location.latitude, location.longitude)
+                userGeoPoint = GeoPoint(location.latitude,location.longitude)
                 val userLocationMarker = createMarker(userGeoPoint, "Mi ubicacion", R.drawable.puntero2,"North")
                 userLocationMarkers.add(userLocationMarker)
                 map.overlays.add(userLocationMarker)
@@ -262,43 +385,197 @@ class HomeActivity : AppCompatActivity(), SensorEventListener {
         override fun onLocationChanged(location: Location) {
             val latitude = location.latitude
             val longitude = location.longitude
-            val geoPoint = GeoPoint(latitude, longitude)
+            userGeoPoint = GeoPoint(latitude, longitude)
 
             userLocationMarkers.forEach { map.overlays.remove(it) }
             userLocationMarkers.clear()
 
-            val address = "Ubicacion Actual"
-            val userLocationMarker = createMarker(geoPoint, address, R.drawable.puntero2, "North")
+            val address = "user"
+            val userLocationMarker = createMarker(userGeoPoint, address, R.drawable.arrowofuser, direccion)
+
             userLocationMarkers.add(userLocationMarker)
             map.overlays.add(userLocationMarker)
+
+            //Comprobar si existe un movimiento significativo
+            if(lastLocation != null){
+                val distance = lastLocation!!.distanceTo(location)
+                if(distance > MIN_DISTANCE_FOR_UPDATE){
+
+                    saveLocationRecord(location)
+                }
+            }
         }
 
         override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {
 
         }
     }
-        private fun searchLocation(address: String){
 
-            val addresses: List<Address> = geocoder.getFromLocationName(address, 1) as? List<Address> ?: emptyList()
-            if(addresses.isNotEmpty()){
+    //Se guardan los registros de ubicacion en un archivo JSON
+    private fun saveLocationRecord(location: Location){
 
-                val foundAddress = addresses[0]
-                val latitude = foundAddress.latitude
-                val longitude = foundAddress.longitude
-                val geoPoint = GeoPoint(latitude, longitude)
-
-                searchMarkers.forEach{map.overlays.remove(it)}
-                searchMarkers.clear()
-
-                val marker = createMarker(geoPoint, address, R.drawable.puntero2,"North")
-                searchMarkers.add(marker)
-                map.overlays.add(marker)
-
-                map.controller.animateTo(geoPoint)
-            }else{
-                Toast.makeText(baseContext, "Direccion no encontrada", Toast.LENGTH_SHORT).show()
+        try{
+            val locationRecord = JSONObject()
+            locationRecord.put("latitude",location.latitude)
+            locationRecord.put("longitude",location.longitude)
+            val currentTime = SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Date())
+            locationRecord.put("timestamp", currentTime)
+            var jsonArray = JSONArray()
+            var file = File(filesDir, JSON_FILE_NAME)
+            if(file.exists()){
+                val jsonStr = FileReader(file).readText()
+                jsonArray = JSONArray(jsonStr)
             }
+            jsonArray.put(locationRecord)
+
+            FileWriter(file).use{it.write(jsonArray.toString())}
+        }catch (e: Exception){
+            e.printStackTrace()
         }
+
+    }
+
+    //Se muestra la ruta en el mapa basada en los registros de ubicacion guardados en el archivo .json
+    private fun showLocationRoute(){
+
+        if(jsonFile?.exists() == true) {
+            val jsonStr = FileReader(jsonFile).readText()
+
+            try {
+
+                val jsonArray = JSONArray(jsonStr)
+                val routePoints = ArrayList<GeoPoint>()
+                for(i in 0 until jsonArray.length()){
+
+                    val locationRecord = jsonArray.getJSONObject(i)
+                    val latitude = locationRecord.getDouble("latitude")
+                    val longitude = locationRecord.getDouble("longitude")
+                    //Agrego la ubicacion a la lista de puntos de la ruta
+                    routePoints.add(GeoPoint(latitude, longitude))
+                }
+
+                if(routePoints.size >= 2){
+                    //Si es una linea que conecte a todos los puntos de una linea
+                    val routePolyline = Polyline()
+                    routePolyline.setPoints(routePoints)
+                    routePolyline.color = Color.YELLOW
+                    routePolyline.width = 5.0f
+                    //Polilinea a mapa
+                    map.overlays.add(routePolyline)
+                    map.invalidate()
+                    //Zoom para mostrar toda la ruta
+                    map.zoomToBoundingBox(routePolyline.bounds, true)
+                    //funcionalidad todp aca programar desaparicion despues de 5 segundos
+                    Handler().postDelayed({
+
+                        if(map.overlays.contains(routePolyline)){
+                            map.overlays.remove(routePolyline)
+                            map.invalidate()
+                        }
+                    },5000)
+
+                }else{
+                    Toast.makeText(this, "No hay suficientes registros de ubicacion para mostrar una ruta",Toast.LENGTH_SHORT).show()
+                }
+            }catch (e: Exception){
+                e.printStackTrace()
+            }
+        }else{
+            //Si no se encuentra el archivo .json, muestra un mensaje apropiado
+            showAlertDialog("Archivo no encontrado","No se encontro el archivo JSON. ")
+
+        }
+    }
+
+    private fun showAlertDialog(title: String, message: String){
+
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle(title)
+        builder.setMessage(message)
+        builder.setPositiveButton("Ok"){dialog, _-> dialog.dismiss()}
+        builder.show()
+    }
+        private fun searchLocation(address: String) {
+
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                val userLocation =
+                    locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+
+                if (userLocation != null) {
+
+                    val userGeoPoint = GeoPoint(userLocation.latitude, userLocation.longitude)
+
+                    val geocodeResults = geocoder.getFromLocationName(address, 1)
+
+                    if (geocodeResults != null && geocodeResults.isNotEmpty() && geocodeResults[0] != null) {
+
+                        val foundAddress = geocodeResults[0]!!
+                        val latitude = foundAddress.latitude
+                        val longitud = foundAddress.longitude
+                        val geoPoint = GeoPoint(latitude, longitud)
+                        //Asigno la direccion como titulo del marcado
+
+                        val addressAsTitle = foundAddress.getAddressLine(0)
+                        //Llamada a la drawRoute antes de agregar el nuevo marcador.
+                        drawRoute(userGeoPoint, geoPoint)
+                        searchMarkers.forEach { map.overlays.remove(it) }
+                        searchMarkers.clear()
+                        val marker =
+                            createMarker(geoPoint, addressAsTitle, R.drawable.puntero2, "Unknown")
+                        searchMarkers.add(marker)
+                        map.overlays.add(marker)
+                        map.controller.animateTo(geoPoint)
+                    } else {
+
+                        Toast.makeText(this, "Direccion no encontrada", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    Toast.makeText(
+                        this,
+                        "No se puede obtener la ubicacion actual",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                }}
+            else{
+
+                requestLocationPermission()
+
+                }
+            }
+
+    private fun requestLocationPermission(){
+
+        if(ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_FINE_LOCATION)){
+
+            AlertDialog.Builder(this)
+                .setTitle("Permiso de ubicacion necesaria")
+                .setMessage("La aplicacion necesita accede a su ubicacion en el mapa")
+                .setPositiveButton("Ok"){_,_ ->
+                    ActivityCompat.requestPermissions(
+                        this,
+                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                        REQUEST_LOCATION_PERMISSION
+
+                    )
+                }
+                .setNegativeButton("Cancelar"){_,_ ->
+
+                }
+                .show()
+        }else{
+
+            ActivityCompat.requestPermissions(
+                this,
+                      arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                      REQUEST_LOCATION_PERMISSION
+            )
+        }
+    }
 
         private var roadOverlay: Polyline? = null
 
@@ -351,39 +628,15 @@ class HomeActivity : AppCompatActivity(), SensorEventListener {
 
             val adjustedAzimuth = if (azimuthDegrees < 0) azimuthDegrees + 360 else azimuthDegrees
 
-            val direction = mapHeadingToDirection(adjustedAzimuth)
+            direccion = mapHeadingToDirection(adjustedAzimuth)
 
             val direccionTextView = findViewById<TextView>(R.id.direccion)
 
-            direccionTextView.text = direction
+            direccionTextView.text = direccion
 
-            if (ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.ACCESS_FINE_LOCATION
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
+            createMarker(userGeoPoint, "User", R.drawable.arrowofuser,direccion)
 
-                ActivityCompat.requestPermissions(
-                    this,
-                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                    REQUEST_LOCATION_PERMISSION
-                )
-            } else {
-                locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-                val location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
 
-                if (location != null) {
-                    val userGeoPoint = GeoPoint(location.latitude, location.longitude)
-                    userLocationMarker = createMarker(userGeoPoint,"user",R.drawable.arrowofuser,direction)
-                    userLocationMarkers.add(userLocationMarker!!)
-                    map.overlays.add(userLocationMarker)
-
-                } else {
-
-                }
-            }
-
-            R.id.direccion
         }
         if(event?.sensor?.type == Sensor.TYPE_LINEAR_ACCELERATION){
 

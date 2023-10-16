@@ -27,6 +27,7 @@
         app:layout_constraintTop_toTopOf="parent">
 
 
+
     </org.osmdroid.views.MapView>
 
     <FrameLayout
@@ -73,29 +74,45 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <SearchView
-            android:id="@+id/searchView"
-            android:layout_width="match_parent"
+        <EditText
+            android:id="@+id/addressEditText"
+            android:layout_width="0dp"
             android:layout_height="40dp"
-            android:layout_marginStart="30dp"
             android:layout_marginTop="30dp"
-            android:layout_marginEnd="90dp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/settings"
+            app:layout_constraintStart_toEndOf="@+id/searchButton"
             app:layout_constraintTop_toBottomOf="@+id/pregunta" />
 
         <ImageButton
             android:id="@+id/settings"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="20dp"
             android:layout_marginTop="36dp"
             android:layout_marginEnd="29dp"
             android:background="@drawable/boton"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toEndOf="@+id/searchView"
             app:layout_constraintTop_toBottomOf="@+id/imageView"
             app:srcCompat="@drawable/rectangle_38" />
+
+        <ImageButton
+            android:id="@+id/searchButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="24dp"
+            android:background="@drawable/boton"
+            app:layout_constraintBottom_toBottomOf="@+id/addressEditText"
+            app:layout_constraintStart_toStartOf="parent"
+            app:srcCompat="@drawable/rectangle_38" />
+
+        <ImageView
+            android:id="@+id/iconoBuscar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintBottom_toBottomOf="@+id/searchButton"
+            app:layout_constraintEnd_toEndOf="@+id/searchButton"
+            app:layout_constraintStart_toStartOf="@+id/searchButton"
+            app:layout_constraintTop_toTopOf="@+id/searchButton"
+            app:srcCompat="@drawable/search" />
 
         <ImageView
             android:id="@+id/imageView"
@@ -129,12 +146,26 @@
 
         <TextView
             android:id="@+id/direccion"
-            android:layout_width="430dp"
+            android:layout_width="wrap_content"
             android:layout_height="12dp"
             android:layout_marginTop="16dp"
             android:text="TextView"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/searchView" />
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/addressEditText" />
+
+        <Button
+            android:id="@+id/showRouteButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="16dp"
+            android:text="Mostrar Ruta"
+            android:backgroundTint="@color/verde"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/direccion"
+            app:layout_constraintTop_toBottomOf="@+id/addressEditText" />
       </androidx.constraintlayout.widget.ConstraintLayout>
     </FrameLayout>
 
